@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "0.0.72",
+    "@opentelemetry/api-logs": "0.54.1",
+    "@opentelemetry/instrumentation": "0.54.1",
+    "@opentelemetry/sdk-logs": "0.54.1",
     "@vercel/otel": "1.10.0",
     "ai": "3.4.33",
     "langfuse-vercel": "3.29.1",

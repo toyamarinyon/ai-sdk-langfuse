@@ -1,5 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
+import { LangfuseExporter } from "langfuse-vercel";
+import { after } from "next/server";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function POST(req: Request) {
@@ -7,13 +9,13 @@ export async function POST(req: Request) {
   const { text } = await generateText({
     model: openai("gpt-4o-mini"),
     prompt,
-    maxTokens: 100,
+    maxTokens: 10,
     experimental_telemetry: {
       isEnabled: true,
-      functionId: "example-function-id",
+      functionId: "local-function-id",
       metadata: { example: "value" },
     },
   });
-  await sleep(1000 * 10);
+  console.log(LangfuseExporter.langfuse);
   return Response.json({ text });
 }

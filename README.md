@@ -1,34 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js + Vercel AI SDK + Langfuse Integration Example
+
+A production-ready example demonstrating how to instrument a Next.js application with Langfuse telemetry while deployed on Vercel, using the Vercel AI SDK.
+
+## Overview
+
+This repository provides a working solution for deploying a Langfuse-instrumented Next.js application on Vercel's serverless environment. While Langfuse offers a sample Next.js application using the Vercel AI SDK, deploying it on Vercel requires specific adaptations due to the platform's serverless architecture. This repository implements and documents those necessary modifications.
+
+## Understanding Telemetry Data Flow
+
+When collecting telemetry data in your Next.js application using `@vercel/otel`, `vercel-langfuse`, and `ai` packages, the data passes through two sequential delay stages:
+
+1. Application to LangfuseExporter delay
+   - Managed by `@vercel/otel`
+   - Configured via `OTEL_BSP_SCHEDULE_DELAY` environment variable
+
+2. LangfuseExporter to Langfuse host delay
+   - Managed by Langfuse
+   - Configured via `flushInterval` constructor parameter
+
+These delays must be accounted for in server actions, route handlers, and other asynchronous operations to ensure complete telemetry data collection and transmission.
+
+## Implementation Details
+
+This repository implements the following solution for reliable telemetry collection on Vercel:
+
+1. Configure Langfuse's flush interval using the `LANGFUSE_FLUSH_INTERVAL` environment variable
+
+2. Implement a helper function to manage both delay stages:
+
+    ```typescript
+    // lib/wait-for-flush.ts
+
+    // type safety for environment variables
+    const otelBspScheduleDelay = Number.parseInt(
+      process.env.OTEL_BSP_SCHEDULE_DELAY ?? "5000",
+    );
+    const langfuseFlushInterval = Number.parseInt(
+      process.env.LANGFUSE_FLUSH_INTERVAL ?? "1000",
+    );
+
+    // wait for both delay stages
+    export const waitForFlush = new Promise((resolve) =>
+      setTimeout(resolve, otelBspScheduleDelay + langfuseFlushInterval),
+    );
+    ```
+
+3. Use the helper function in server actions, route handlers, and other asynchronous operations:
+
+    ```typescript
+    import { waitForFlush } from "../../lib/wait-for-flush";
+    import { openai } from "@ai-sdk/openai";
+    import { generateText } from "ai";
+    import { after } from "next/server";
+
+    export async function POST(req: Request) {
+      const { prompt } = await req.json();
+      const { text } = await generateText({
+        model: openai("gpt-4o-mini"),
+        prompt,
+        maxTokens: 10,
+        experimental_telemetry: {
+          isEnabled: true,
+          functionId: "some-function-id",
+          metadata: { example: "value" },
+        },
+      });
+      after(waitForFlush);
+      return Response.json({ text });
+    }
+    ```
+
+This implementation ensures reliable telemetry collection in Vercel's serverless environment while maintaining application performance.
 
 ## Getting Started
 
-First, run the development server:
+1. Clone this repository
+1. Deploy to Vercel
+1. Configure the following environment variables in your Vercel project:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+   Name | Value
+   -----|-------
+   `OTEL_BSP_SCHEDULE_DELAY`|`5000`
+   `LANGFUSE_FLUSH_INTERVAL`|`1000`
+   `OPENAI_API_KEY`|Your OpenAI API key
+   `LANGFUSE_BASEURL`|Your Langfuse base URL
+   `LANGFUSE_PUBLIC_KEY`|Your Langfuse public key
+   `LANGFUSE_SECRET_KEY`|Your Langfuse secret key
+1. Redeploy to set the environment variables
+1. Test the application by sending a POST request to `/api` with a JSON body containing a `prompt` field
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+    ```sh
+     curl -X POST -H "Content-Type: application/json" -d '{"prompt":"hello"}' YOUR_VERCEL_URL/api
+     ```
+1. Check the Langfuse dashboard for telemetry data

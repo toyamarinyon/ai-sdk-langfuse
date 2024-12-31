@@ -1,4 +1,4 @@
-# Next.js + Vercel AI SDK + Langfuse Integration Example
+# Next.js on Vercel + Vercel AI SDK + Langfuse Integration Example
 
 A production-ready example demonstrating how to instrument a Next.js application with Langfuse telemetry while deployed on Vercel, using the Vercel AI SDK.
 

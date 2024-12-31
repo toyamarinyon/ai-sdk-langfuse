@@ -26,6 +26,23 @@ This repository implements the following solution for reliable telemetry collect
 
 1. Configure Langfuse's flush interval using the `LANGFUSE_FLUSH_INTERVAL` environment variable
 
+    ```typescript
+    // instrument.ts
+    import { registerOTel } from "@vercel/otel";
+    import { LangfuseExporter } from "langfuse-vercel";
+
+    export async function register() {
+      registerOTel({
+        serviceName: "langfuse-vercel-ai-nextjs-example",
+        traceExporter: new LangfuseExporter({
+          flushInterval: Number.parseInt(
+            process.env.LANGFUSE_FLUSH_INTERVAL ?? "1000",
+          ),
+        }),
+      });
+    }
+    ```
+
 2. Implement a helper function to manage both delay stages:
 
     ```typescript
